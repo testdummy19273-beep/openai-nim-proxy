@@ -30,8 +30,11 @@ const MODEL_MAPPING = {
   'claude-3-opus': 'openai/gpt-oss-120b',
   'claude-3-sonnet': 'openai/gpt-oss-20b',
   'gemini-pro': 'qwen/qwen3-next-80b-a3b-thinking',
-  'gpt-5': 'qwen/qwen3.5-397b-a17b',
-  'glm-5': 'z-ai/glm5'
+  'qwen-3.5-397b': 'qwen/qwen3.5-397b-a17b',
+  'glm-4.7': 'z-ai/glm4.7',
+  'glm-5': 'z-ai/glm5',
+  'deepseek-3.2': 'deepseek-ai/deepseek-v3.2',
+  'kimi-k2.5': 'moonshotai/kimi-k2.5'
 };
 
 // Health check endpoint
