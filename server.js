@@ -34,7 +34,8 @@ const MODEL_MAPPING = {
   'glm-4.7': 'z-ai/glm4.7',
   'glm-5': 'z-ai/glm5',
   'deepseek-3.2': 'deepseek-ai/deepseek-v3.2',
-  'kimi-k2.5': 'moonshotai/kimi-k2.5'
+  'kimi-k2.5': 'moonshotai/kimi-k2.5',
+  'nemotron-3-super': 'nvidia/nemotron-3-super-120b-a12b'
 };
 
 // Health check endpoint
