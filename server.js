@@ -123,64 +123,97 @@ app.post('/v1/chat/completions', async (req, res) => {
       res.setHeader('Content-Type', 'text/event-stream');
       res.setHeader('Cache-Control', 'no-cache');
       res.setHeader('Connection', 'keep-alive');
+      res.flushHeaders(); 
       
       let buffer = '';
       let reasoningStarted = false;
       
       response.data.on('data', (chunk) => {
-        buffer += chunk.toString();
-        const lines = buffer.split('\\n');
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
         buffer = lines.pop() || '';
         
-        lines.forEach(line => {
-          if (line.startsWith('data: ')) {
-            if (line.includes('[DONE]')) {
-              res.write(line + '\\n');
+        for (const line of lines) {
+          const trimmedLine = line.trim();
+          if (!trimmedLine) continue; 
+          
+          if (trimmedLine.startsWith('data: ')) {
+            if (trimmedLine === 'data: [DONE]') {
+              res.write('data: [DONE]\n\n');
               return;
             }
             
             try {
-              const data = JSON.parse(line.slice(6));
-              if (data.choices?.[0]?.delta) {
-                const reasoning = data.choices[0].delta.reasoning_content;
-                const content = data.choices[0].delta.content;
+              const data = JSON.parse(trimmedLine.slice(6));
+              const choice = data.choices?.[0];
+              
+              if (choice?.delta) {
+                const delta = choice.delta;
+                const reasoning = delta.reasoning_content;
+                const content = delta.content;
                 
                 if (SHOW_REASONING) {
                   let combinedContent = '';
+                  let hasUpdates = false;
                   
-                  if (reasoning && !reasoningStarted) {
-                    combinedContent = '<think>\\n' + reasoning;
-                    reasoningStarted = true;
-                  } else if (reasoning) {
-                    combinedContent = reasoning;
+                  // 1. Process Reasoning
+                  // By checking `if (reasoning)`, we ignore empty strings "" and nulls
+                  if (reasoning) { 
+                    hasUpdates = true;
+                    if (!reasoningStarted) {
+                      combinedContent += '<think>\n' + reasoning;
+                      reasoningStarted = true;
+                    } else {
+                      combinedContent += reasoning;
+                    }
                   }
                   
-                  if (content && reasoningStarted) {
-                    combinedContent += '</think>\\n\\n' + content;
+                  // 2. Process Standard Content
+                  // By checking `if (content)`, we ensure empty strings "" don't accidentally close the tag
+                  if (content) { 
+                    hasUpdates = true;
+                    if (reasoningStarted) {
+                      combinedContent += '\n</think>\n\n' + content;
+                      reasoningStarted = false;
+                    } else {
+                      combinedContent += content;
+                    }
+                  }
+                  
+                  // 3. Handle stream completion if model finishes while still "thinking"
+                  if (choice.finish_reason && reasoningStarted) {
+                    combinedContent += '\n</think>';
                     reasoningStarted = false;
-                  } else if (content) {
-                    combinedContent += content;
+                    hasUpdates = true;
                   }
                   
-                  if (combinedContent) {
-                    data.choices[0].delta.content = combinedContent;
-                    delete data.choices[0].delta.reasoning_content;
+                  // 4. Apply updates
+                  if (hasUpdates) {
+                    delta.content = combinedContent;
+                  } else if (content === '') {
+                    // Only pass empty initialization chunks if we aren't mid-reasoning
+                    if (!reasoningStarted) delta.content = '';
                   }
+                  
+                  delete delta.reasoning_content;
+                  
                 } else {
-                  if (content) {
-                    data.choices[0].delta.content = content;
+                  // Stripping reasoning
+                  if (content !== undefined) {
+                    delta.content = content || '';
                   } else {
-                    data.choices[0].delta.content = '';
+                    delta.content = '';
                   }
-                  delete data.choices[0].delta.reasoning_content;
+                  delete delta.reasoning_content;
                 }
               }
-              res.write(`data: ${JSON.stringify(data)}\\n\\n`);
+              
+              res.write(`data: ${JSON.stringify(data)}\n\n`); 
             } catch (e) {
-              res.write(line + '\\n');
+              res.write(`${trimmedLine}\n\n`);
             }
           }
-        });
+        }
       });
       
       response.data.on('end', () => res.end());
@@ -189,7 +222,7 @@ app.post('/v1/chat/completions', async (req, res) => {
         res.end();
       });
     } else {
-      // Transform NIM response to OpenAI format with reasoning
+      // Handle NON-STREAMING response
       const openaiResponse = {
         id: `chatcmpl-${Date.now()}`,
         object: 'chat.completion',
@@ -199,15 +232,18 @@ app.post('/v1/chat/completions', async (req, res) => {
           let fullContent = choice.message?.content || '';
           
           if (SHOW_REASONING && choice.message?.reasoning_content) {
-            fullContent = '<think>\\n' + choice.message.reasoning_content + '\\n</think>\\n\\n' + fullContent;
+            fullContent = '<think>\n' + choice.message.reasoning_content + '\n</think>\n\n' + fullContent;
           }
+          
+          // Clean up the object to match OpenAI standard exactly
+          const message = {
+            role: choice.message.role,
+            content: fullContent
+          };
           
           return {
             index: choice.index,
-            message: {
-              role: choice.message.role,
-              content: fullContent
-            },
+            message: message,
             finish_reason: choice.finish_reason
           };
         }),
