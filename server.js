@@ -36,8 +36,8 @@ const MODEL_MAPPING = {
   'deepseek-3.2': 'deepseek-ai/deepseek-v3.2',
   'kimi-k2.5': 'moonshotai/kimi-k2.5',
   'nemotron-3-super': 'nvidia/nemotron-3-super-120b-a12b',
-  'gemma-4-31b': 'google/gemma-4-31b-it'
-  'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro'
+  'gemma-4-31b': 'google/gemma-4-31b-it',
+  'deepseek-v4-pro': 'deepseek-ai/deepseek-v4-pro',
   'deepseek-v4-flash': 'deepseek-ai/deepseek-v4-flash'
 };
 
